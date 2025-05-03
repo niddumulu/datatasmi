@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Data Keluarga - Import Excel</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 6px;
+      box-sizing: border-box;
+    }
+    .btn {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
+    }
+    .action-btn {
+      margin-right: 5px;
+      padding: 4px 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Form Data Keluarga</h2>
+
+  <form id="formData">
+    <input type="hidden" id="editIndex" value="">
+    <table>
+      <tr>
+        <th>Nama <span style="color:red;">*</span></th>
+        <th>Ayah</th>
+        <th>Ibu</th>
+        <th>Alamat</th>
+        <th>Kelas</th>
+      </tr>
+      <tr>
+        <td><input type="text" id="nama" required onblur="formatInput(this)"></td>
+        <td><input type="text" id="ayah" onblur="formatInput(this)"></td>
+        <td><input type="text" id="ibu" onblur="formatInput(this)"></td>
+        <td><input type="text" id="alamat" onblur="formatInput(this)"></td>
+        <td><input type="text" id="kelas"></td>
+      </tr>
+    </table>
+    <button type="submit" class="btn">Simpan</button>
+  </form>
+
+  <br>
+  <label for="fileInput"><strong>Import Excel (.xlsx):</strong></label>
+  <input type="file" id="fileInput" accept=".xlsx" class="btn">
+
+  <h3>Daftar Data:</h3>
+  <table id="tabelHasil">
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>Nama</th>
+        <th>Ayah</th>
+        <th>Ibu</th>
+        <th>Alamat</th>
+        <th>Kelas</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="tbodyHasil">
+      <!-- Baris data akan muncul di sini -->
+    </tbody>
+  </table>
+
+  <script>
+    let dataList = [];
+
+    function toTitleCase(text) {
+      return text.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function formatInput(input) {
+      input.value = toTitleCase(input.value.trim());
+    }
+
+    document.getElementById('formData').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const nama = toTitleCase(document.getElementById('nama').value.trim());
+      const ayah = toTitleCase(document.getElementById('ayah').value.trim());
+      const ibu = toTitleCase(document.getElementById('ibu').value.trim());
+      const alamat = toTitleCase(document.getElementById('alamat').value.trim());
+      const kelas = document.getElementById('kelas').value.trim(); // kelas tidak diubah format
+      const editIndex = document.getElementById('editIndex').value;
+
+      if (nama === "") {
+        alert("Kolom Nama wajib diisi.");
+        return;
+      }
+
+      const entry = { nama, ayah, ibu, alamat, kelas };
+
+      if (editIndex === "") {
+        dataList.push(entry);
+      } else {
+        dataList[editIndex] = entry;
+        document.getElementById('editIndex').value = "";
+      }
+
+      document.getElementById('formData').reset();
+      tampilkanData();
+    });
+
+    function tampilkanData() {
+      const tbody = document.getElementById('tbodyHasil');
+      tbody.innerHTML = "";
+      dataList.forEach((data, index) => {
+        const row = `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${data.nama}</td>
+            <td>${data.ayah}</td>
+            <td>${data.ibu}</td>
+            <td>${data.alamat}</td>
+            <td>${data.kelas}</td>
+            <td>
+              <button class="action-btn" onclick="editData(${index})">Edit</button>
+              <button class="action-btn" onclick="hapusData(${index})">Hapus</button>
+            </td>
+          </tr>
+        `;
+        tbody.innerHTML += row;
+      });
+    }
+
+    function editData(index) {
+      const data = dataList[index];
+      document.getElementById('nama').value = data.nama;
+      document.getElementById('ayah').value = data.ayah;
+      document.getElementById('ibu').value = data.ibu;
+      document.getElementById('alamat').value = data.alamat;
+      document.getElementById('kelas').value = data.kelas;
+      document.getElementById('editIndex').value = index;
+    }
+
+    function hapusData(index) {
+      if (confirm("Yakin ingin menghapus data ini?")) {
+        dataList.splice(index, 1);
+        tampilkanData();
+      }
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+        jsonData.forEach(item => {
+          if (item.Nama) {
+            dataList.push({
+              nama: toTitleCase(item.Nama || ""),
+              ayah: toTitleCase(item.Ayah || ""),
+              ibu: toTitleCase(item.Ibu || ""),
+              alamat: toTitleCase(item.Alamat || ""),
+              kelas: item.Kelas || "" // kelas tidak diformat
+            });
+          }
+        });
+
+        tampilkanData();
+        alert("Data berhasil diimpor dari Excel!");
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  </script>
+
+</body>
+</html>
